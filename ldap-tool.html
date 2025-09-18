@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>LDAP Group Calculator</title>
+<style>
+  /* Basic styling for the container */
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f9;
+    color: #333;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+  }
+
+  /* Main form container */
+  #ldapFormContainer {
+    background-color: #ffffff;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    max-width: 600px;
+    width: 100%;
+  }
+
+  /* Form headings */
+  h2 {
+    color: #444;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  /* Input and question styling */
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  input[type="text"] {
+    width: calc(100% - 20px);
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+  }
+
+  /* Radio button 'bubble' styling */
+  .radio-group {
+    display: flex;
+    gap: 10px;
+  }
+
+  .radio-group label {
+    font-weight: normal;
+    background-color: #e9e9ed;
+    padding: 8px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s;
+  }
+
+  .radio-group input[type="radio"] {
+    display: none; /* Hide the default radio button */
+  }
+
+  .radio-group input[type="radio"]:checked + label {
+    background-color: #007bff;
+    color: white;
+  }
+
+  /* Button styling */
+  button {
+    width: 100%;
+    padding: 12px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+
+  button:hover {
+    background-color: #218838;
+  }
+
+  /* Results area styling */
+  #results {
+    margin-top: 25px;
+    padding: 15px;
+    background-color: #e3f2fd;
+    border-left: 5px solid #007bff;
+    border-radius: 4px;
+  }
+
+  #results h3 {
+    margin-top: 0;
+  }
+
+  #results ul {
+    list-style-type: none;
+    padding-left: 0;
+  }
+  
+  #results li {
+    background-color: #fff;
+    padding: 8px;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: bold;
+  }
+
+</style>
+</head>
+<body>
+
+<div id="ldapFormContainer">
+  <h2>PAM LDAP Group Calculator</h2>
+  
+  <div class="form-group">
+    <label for="safeName">Safe Name:</label>
+    <input type="text" id="safeName" name="safeName" placeholder="Enter the safe name here">
+  </div>
+
+  <div class="form-group">
+    <label>1. Do you need to add/edit/delete the credentials in your safe?</label>
+    <div class="radio-group">
+      <input type="radio" id="q1_yes" name="q1" value="yes">
+      <label for="q1_yes">Yes</label>
+      <input type="radio" id="q1_no" name="q1" value="no" checked>
+      <label for="q1_no">No</label>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>2. Do you need to connect to a device using the credentials in your safe?</label>
+    <div class="radio-group">
+      <input type="radio" id="q2_yes" name="q2" value="yes">
+      <label for="q2_yes">Yes</label>
+      <input type="radio" id="q2_no" name="q2" value="no" checked>
+      <label for="q2_no">No</label>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>3. Do you need to show the plaintext password for the credentials in your safe, or make accounts available for offline access in the CyberArk Mobile App?</label>
+    <div class="radio-group">
+      <input type="radio" id="q3_yes" name="q3" value="yes">
+      <label for="q3_yes">Yes</label>
+      <input type="radio" id="q3_no" name="q3" value="no" checked>
+      <label for="q3_no">No</label>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>4. Do you need to approve dual control requests for the credentials in your safe?</label>
+    <div class="radio-group">
+      <input type="radio" id="q4_yes" name="q4" value="yes">
+      <label for="q4_yes">Yes</label>
+      <input type="radio" id="q4_no" name="q4" value="no" checked>
+      <label for="q4_no">No</label>
+    </div>
+  </div>
+
+  <button type="button" onclick="calculateLdapGroups()">Calculate Required Groups</button>
+
+  <div id="results" style="display:none;">
+    <h3>Please request the following LDAP groups:</h3>
+    <ul id="ldapGroupList"></ul>
+  </div>
+
+</div>
+
+<script>
+function calculateLdapGroups() {
+  // Get the safe name from the input, or use a placeholder if empty
+  let safeName = document.getElementById('safeName').value.trim();
+  if (safeName === '') {
+    safeName = '<safename>';
+  }
+
+  // Get the 'yes'/'no' answers from the radio buttons
+  const q1_yes = document.getElementById('q1_yes').checked;
+  const q2_yes = document.getElementById('q2_yes').checked;
+  const q3_yes = document.getElementById('q3_yes').checked;
+  const q4_yes = document.getElementById('q4_yes').checked;
+  
+  // A Set is used to automatically handle duplicate entries
+  const requiredGroups = new Set();
+
+  // --- LOGIC FOR DETERMINING GROUPS ---
+
+  // If Q1 is yes, add Owner group
+  if (q1_yes) {
+    requiredGroups.add(`23286_PAM_${safeName}_Owner`);
+  }
+
+  // If Q2 or Q3 is yes, add User group
+  if (q2_yes || q3_yes) {
+    requiredGroups.add(`23286_PAM_${safeName}_User`);
+  }
+
+  // If Q4 is yes, add Approver group
+  if (q4_yes) {
+    requiredGroups.add(`23286_PAM_${safeName}_Approver`);
+  }
+  
+  // Determine global user type based on Q2
+  if (q2_yes) {
+    requiredGroups.add('23286_PAM_Global_User');
+  } else {
+    requiredGroups.add('23286_PAM_Global_User_Basic');
+  }
+
+  // --- DISPLAY THE RESULTS ---
+  
+  const resultsDiv = document.getElementById('results');
+  const groupList = document.getElementById('ldapGroupList');
+  
+  // Clear any previous results
+  groupList.innerHTML = ''; 
+
+  if (requiredGroups.size > 0) {
+    // Populate the list with the required groups
+    requiredGroups.forEach(group => {
+      const listItem = document.createElement('li');
+      listItem.textContent = group;
+      groupList.appendChild(listItem);
+    });
+    // Make the results section visible
+    resultsDiv.style.display = 'block';
+  } else {
+    // Hide the results section if no groups are needed (unlikely with this logic)
+    resultsDiv.style.display = 'none';
+  }
+}
+</script>
+<script>
+  // This function runs automatically when the page loads
+  window.addEventListener('load', function() {
+    // Get the URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Look for a parameter named 'safename'
+    const safeNameFromUrl = urlParams.get('safename');
+    
+    // If it exists, put its value into the input field
+    if (safeNameFromUrl) {
+      document.getElementById('safeName').value = safeNameFromUrl;
+    }
+  });
+</script>
+</body>
+</html>
