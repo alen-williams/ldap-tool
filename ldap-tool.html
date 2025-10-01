@@ -193,6 +193,15 @@ function calculateLdapGroups() {
   const q2_yes = document.getElementById('q2_yes').checked;
   const q3_yes = document.getElementById('q3_yes').checked;
   const q4_yes = document.getElementById('q4_yes').checked;
+
+  // --- NEW: VALIDATION BLOCK ---
+  // Check if all answers are 'No'
+  if (!q1_yes && !q2_yes && !q3_yes && !q4_yes) {
+    alert("Please select 'Yes' for at least one option to proceed.");
+    document.getElementById('results').style.display = 'none'; // Hide any previous results
+    return; // Stop the function from running further
+  }
+  // --- END OF VALIDATION BLOCK ---
   
   // A Set is used to automatically handle duplicate entries
   const requiredGroups = new Set();
@@ -227,7 +236,7 @@ function calculateLdapGroups() {
   const groupList = document.getElementById('ldapGroupList');
   
   // Clear any previous results
-  groupList.innerHTML = ''; 
+  groupList.innerHTML = '';
 
   if (requiredGroups.size > 0) {
     // Populate the list with the required groups
